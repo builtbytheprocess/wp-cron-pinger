@@ -1,0 +1,30 @@
+name: WP Cron Pinger
+
+# WordPress only runs scheduled tasks when someone visits the site.
+# On a low-traffic site that means emails, sequences and automations stall.
+# This pings wp-cron.php on a fixed schedule so they always fire on time.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes (GitHub's minimum)
+  workflow_dispatch:         # allows a manual run from the Actions tab
+
+concurrency:
+  group: wp-cron
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping niplifted.com
+        run: |
+          set -u
+          URL="https://niplifted.com/wp-cron.php?doing_wp_cron"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 --retry 2 --retry-delay 5 "$URL" || echo "000")
+          echo "niplifted.com -> HTTP $code"
+          case "$code" in
+            200|301|302) echo "cron triggered" ;;
+            *) echo "::error::wp-cron ping failed (HTTP $code)"; exit 1 ;;
+          esac
